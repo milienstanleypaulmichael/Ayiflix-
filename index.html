@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AYIFLIX - Plataforma de Streaming</title>
+  
+  <!-- React y ReactDOM -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  
+  <!-- Babel Standalone -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Playfair+Display:wght@700&family=Montserrat:wght@400;600;800&display=swap');
+    
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Montserrat', sans-serif; overflow-x: hidden; }
+    
+    .title-font { font-family: 'Bebas Neue', cursive; letter-spacing: 0.05em; }
+    .display-font { font-family: 'Playfair Display', serif; }
+    
+    .gradient-text {
+      background: linear-gradient(135deg, #FF6B35 0%, #F7931E 50%, #FDC830 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    .movie-card {
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .movie-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, rgba(255,107,53,0.2), rgba(253,200,48,0.2));
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+    
+    .movie-card:hover {
+      transform: translateY(-12px) scale(1.05);
+      box-shadow: 0 25px 50px -12px rgba(255,107,53,0.5);
+    }
+    
+    .movie-card:hover::before {
+      opacity: 1;
+    }
+    
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-20px); }
+    }
+    
+    .float-animation {
+      animation: float 6s ease-in-out infinite;
+    }
+    
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 20px rgba(255,107,53,0.5); }
+      50% { box-shadow: 0 0 40px rgba(255,107,53,0.8); }
+    }
+    
+    .pulse-glow {
+      animation: pulse-glow 2s ease-in-out infinite;
+    }
+    
+    .tropical-pattern {
+      background-image: 
+        radial-gradient(circle at 20% 50%, rgba(255,107,53,0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(253,200,48,0.1) 0%, transparent 50%);
+    }
+    
+    .search-glow:focus {
+      box-shadow: 0 0 0 3px rgba(255,107,53,0.3);
+    }
+    
+    .admin-card {
+      transition: all 0.3s ease;
+    }
+    
+    .admin-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 10px 30px rgba(255,107,53,0.3);
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    const PAYMENT_METHODS = {
+      MONCASH: { name: 'Mon Cash', color: '#FF6B35' },
+      NATCASH: { name: 'Nat Cash', color: '#004E89' },
+      CARD: { name: 'Tarjeta de Crédito', color: '#7209B7' }
+    };
+
+    const SUBSCRIPTION_PLANS = [
+      { id: 'basic', name: 'Básico', price: 299, features: ['1 Pantalla', 'Calidad SD', 'Contenido limitado'] },
+      { id: 'standard', name: 'Estándar', price: 499, features: ['2 Pantallas', 'Calidad HD', 'Todo el contenido'] },
+      { id: 'premium', name: 'Premium', price: 699, features: ['4 Pantallas', 'Calidad 4K', 'Descargas ilimitadas'] }
+    ];
+
+    const INITIAL_MOVIES = [
+      { id: 1, title: 'La Fortaleza del Caribe', category: 'Acción', year: 2024, rating: 4.8, thumbnail: '🏰', description: 'Una épica aventura en las costas del Caribe', featured: true },
+      { id: 2, title: 'Noches de Puerto Príncipe', category: 'Drama', year: 2023, rating: 4.5, thumbnail: '🌃', description: 'Historia de amor y resistencia' },
+      { id: 3, title: 'El Tesoro Perdido', category: 'Aventura', year: 2024, rating: 4.7, thumbnail: '💎', description: 'Búsqueda del legendario tesoro taíno' },
+      { id: 4, title: 'Ritmos del Sol', category: 'Musical', year: 2023, rating: 4.6, thumbnail: '🎵', description: 'La historia del compás haitiano' },
+      { id: 5, title: 'Bajo las Estrellas', category: 'Romance', year: 2024, rating: 4.9, thumbnail: '⭐', description: 'Romance bajo el cielo caribeño' },
+      { id: 6, title: 'La Revolución', category: 'Historia', year: 2023, rating: 4.8, thumbnail: '🔥', description: 'El nacimiento de una nación libre' }
+    ];
+
+    function Ayiflix() {
+      const [currentView, setCurrentView] = useState('landing');
+      const [user, setUser] = useState(null);
+      const [movies, setMovies] = useState(INITIAL_MOVIES);
+      const [selectedMovie, setSelectedMovie] = useState(null);
+      const [searchQuery, setSearchQuery] = useState('');
+      const [showMobileMenu, setShowMobileMenu] = useState(false);
+
+      useEffect(() => {
+        const savedMovies = localStorage.getItem('ayiflix_movies');
+        const savedUser = localStorage.getItem('ayiflix_user');
+        
+        if (savedMovies) setMovies(JSON.parse(savedMovies));
+        if (savedUser) {
+          setUser(JSON.parse(savedUser));
+          setCurrentView('home');
+        }
+      }, []);
+
+      useEffect(() => {
+        if (movies.length > 0) {
+          localStorage.setItem('ayiflix_movies', JSON.stringify(movies));
+        }
+      }, [movies]);
+
+      const handleLogin = (email, password, isAdmin = false) => {
+        const newUser = {
+          email,
+          isAdmin,
+          subscription: isAdmin ? 'premium' : 'basic',
+          joinDate: new Date().toISOString()
+        };
+        setUser(newUser);
+        localStorage.setItem('ayiflix_user', JSON.stringify(newUser));
+        setCurrentView(isAdmin ? 'admin' : 'home');
+      };
+
+      const handleLogout = () => {
+        setUser(null);
+        localStorage.removeItem('ayiflix_user');
+        setCurrentView('landing');
+      };
+
+      const filteredMovies = movies.filter(movie =>
+        movie.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        movie.category.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+
+      if (currentView === 'landing') {
+        return (
+          <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-orange-900 relative overflow-hidden">
+            <div className="absolute inset-0 opacity-20">
+              <div className="absolute top-20 left-20 w-64 h-64 bg-orange-500 rounded-full blur-3xl"></div>
+              <div className="absolute bottom-20 right-20 w-96 h-96 bg-purple-500 rounded-full blur-3xl"></div>
+              <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-yellow-500 rounded-full blur-3xl"></div>
+            </div>
+
+            <div className="relative z-10 min-h-screen flex flex-col">
+              <header className="p-6 flex justify-between items-center">
+                <h1 className="title-font text-5xl gradient-text">AYIFLIX</h1>
+                <button
+                  onClick={() => setCurrentView('auth')}
+                  className="px-6 py-2 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-full transition"
+                >
+                  Iniciar Sesión
+                </button>
+              </header>
+
+              <main className="flex-1 flex items-center justify-center px-6">
+                <div className="max-w-4xl text-center">
+                  <h2 className="display-font text-6xl sm:text-7xl font-bold text-white mb-6 float-animation">
+                    El Cine del Caribe
+                    <br />
+                    <span className="gradient-text">en tus Manos</span>
+                  </h2>
+                  <p className="text-xl text-gray-300 mb-12 max-w-2xl mx-auto">
+                    Descubre las mejores películas y series en español. Contenido exclusivo, calidad excepcional, cultura vibrante.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                    <button
+                      onClick={() => setCurrentView('subscribe')}
+                      className="px-10 py-4 bg-orange-500 hover:bg-orange-600 text-white text-lg font-bold rounded-full transition pulse-glow"
+                    >
+                      Comenzar Ahora
+                    </button>
+                    <button
+                      onClick={() => setCurrentView('auth')}
+                      className="px-10 py-4 bg-slate-700/80 hover:bg-slate-600 text-white text-lg font-bold rounded-full transition backdrop-blur"
+                    >
+                      Ver Demo
+                    </button>
+                  </div>
+                  
+                  <div className="mt-8 pt-8 border-t border-orange-500/30">
+                    <button
+                      onClick={() => handleLogin('admin@ayiflix.com', 'admin123', true)}
+                      className="text-orange-400 hover:text-orange-300 text-sm font-semibold underline"
+                    >
+                      Acceso Rápido Admin (Demo)
+                    </button>
+                  </div>
+                </div>
+              </main>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 px-6 pb-12 max-w-6xl mx-auto w-full">
+                <div className="text-center">
+                  <div className="text-5xl mb-3">🎬</div>
+                  <h3 className="font-bold text-white mb-2">Catálogo Exclusivo</h3>
+                  <p className="text-gray-400 text-sm">Películas y series únicas del Caribe</p>
+                </div>
+                <div className="text-center">
+                  <div className="text-5xl mb-3">⚡</div>
+                  <h3 className="font-bold text-white mb-2">Streaming Rápido</h3>
+                  <p className="text-gray-400 text-sm">Calidad HD y 4K sin interrupciones</p>
+                </div>
+                <div className="text-center">
+                  <div className="text-5xl mb-3">💳</div>
+                  <h3 className="font-bold text-white mb-2">Pagos Locales</h3>
+                  <p className="text-gray-400 text-sm">Mon Cash, Nat Cash y más</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      if (currentView === 'auth') {
+        return (
+          <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center px-4">
+            <div className="max-w-md w-full">
+              <button onClick={() => setCurrentView('landing')} className="text-orange-400 hover:text-orange-300 mb-6">
+                ← Volver
+              </button>
+              
+              <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-8 border border-orange-500/20">
+                <h2 className="title-font text-4xl gradient-text text-center mb-8">
+                  Iniciar Sesión
+                </h2>
+                
+                <form onSubmit={(e) => { e.preventDefault(); handleLogin('user@demo.com', 'demo'); }} className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-300 mb-2">Email</label>
+                    <input
+                      type="email"
+                      className="w-full px-4 py-3 bg-slate-700 border border-orange-500/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-orange-500"
+                      placeholder="tu@email.com"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-300 mb-2">Contraseña</label>
+                    <input
+                      type="password"
+                      className="w-full px-4 py-3 bg-slate-700 border border-orange-500/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-orange-500"
+                      placeholder="••••••••"
+                      required
+                    />
+                  </div>
+                  
+                  <button
+                    type="submit"
+                    className="w-full py-3 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-full transition pulse-glow"
+                  >
+                    Entrar
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      if (currentView === 'subscribe') {
+        const [selectedPlan, setSelectedPlan] = useState('standard');
+        const [selectedPayment, setSelectedPayment] = useState('MONCASH');
+        const [showPaymentForm, setShowPaymentForm] = useState(false);
+
+        return (
+          <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 px-4 py-12">
+            <div className="max-w-6xl mx-auto">
+              <button onClick={() => setCurrentView(user ? 'home' : 'landing')} className="text-orange-400 hover:text-orange-300 mb-8">
+                ← Volver
+              </button>
+              
+              <h1 className="title-font text-5xl gradient-text text-center mb-4">Elige tu Plan</h1>
+              <p className="text-gray-300 text-center mb-12">Selecciona el plan perfecto para ti</p>
+              
+              <div className="grid md:grid-cols-3 gap-6 mb-12">
+                {SUBSCRIPTION_PLANS.map((plan) => (
+                  <div
+                    key={plan.id}
+                    onClick={() => setSelectedPlan(plan.id)}
+                    className={`cursor-pointer rounded-2xl p-8 border-2 transition ${
+                      selectedPlan === plan.id
+                        ? 'border-orange-500 bg-gradient-to-br from-orange-500/20 to-purple-500/20'
+                        : 'border-slate-700 bg-slate-800/50 hover:border-orange-500/50'
+                    }`}
+                  >
+                    <h3 className="title-font text-3xl text-white mb-2">{plan.name}</h3>
+                    <div className="text-4xl font-bold text-orange-400 mb-6">
+                      HTG {plan.price}<span className="text-lg text-gray-400">/mes</span>
+                    </div>
+                    <ul className="space-y-3">
+                      {plan.features.map((feature, idx) => (
+                        <li key={idx} className="flex items-center gap-2 text-gray-300">
+                          <span className="text-orange-400">✓</span>
+                          {feature}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+              
+              <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-8 border border-orange-500/20">
+                <h2 className="title-font text-3xl text-white mb-6">Método de Pago</h2>
+                
+                <div className="grid sm:grid-cols-3 gap-4 mb-8">
+                  {Object.entries(PAYMENT_METHODS).map(([key, method]) => (
+                    <button
+                      key={key}
+                      onClick={() => setSelectedPayment(key)}
+                      className={`p-6 rounded-xl border-2 transition ${
+                        selectedPayment === key
+                          ? 'border-orange-500 bg-orange-500/10'
+                          : 'border-slate-700 hover:border-orange-500/50'
+                      }`}
+                    >
+                      <div className="text-4xl mb-3">💳</div>
+                      <div className="font-semibold text-white">{method.name}</div>
+                    </button>
+                  ))}
+                </div>
+                
+                {!showPaymentForm ? (
+                  <button
+                    onClick={() => setShowPaymentForm(true)}
+                    className="w-full py-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-full transition pulse-glow"
+                  >
+                    Continuar al Pago
+                  </button>
+                ) : (
+                  <div className="space-y-4">
+                    <input
+                      type="text"
+                      placeholder={selectedPayment === 'CARD' ? 'Número de Tarjeta' : 'Número de Teléfono'}
+                      className="w-full px-4 py-3 bg-slate-700 border border-orange-500/30 rounded-lg text-white placeholder-gray-400"
+                    />
+                    {selectedPayment === 'CARD' && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <input
+                          type="text"
+                          placeholder="MM/AA"
+                          className="px-4 py-3 bg-slate-700 border border-orange-500/30 rounded-lg text-white placeholder-gray-400"
+                        />
+                        <input
+                          type="text"
+                          placeholder="CVV"
+                          className="px-4 py-3 bg-slate-700 border border-orange-500/30 rounded-lg text-white placeholder-gray-400"
+                        />
+                      </div>
+                    )}
+                    <button
+                      onClick={() => { alert(`¡Suscripción exitosa!`); setCurrentView(user ? 'home' : 'landing'); }}
+                      className="w-full py-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-full transition pulse-glow"
+                    >
+                      Confirmar Pago - HTG {SUBSCRIPTION_PLANS.find(p => p.id === selectedPlan).price}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      if (currentView === 'admin') {
+        return <AdminPanel movies={movies} setMovies={setMovies} onLogout={handleLogout} onNavigate={setCurrentView} />;
+      }
+
+      if (currentView === 'player' && selectedMovie) {
+        return (
+          <div className="min-h-screen bg-black flex flex-col">
+            <button
+              onClick={() => { setSelectedMovie(null); setCurrentView('home'); }}
+              className="absolute top-6 left-6 z-50 px-4 py-2 bg-slate-900/80 hover:bg-slate-800 text-white rounded-full backdrop-blur transition"
+            >
+              ← Volver
+            </button>
+            
+            <div className="flex-1 flex items-center justify-center p-4">
+              <div className="text-center max-w-2xl">
+                <div className="text-9xl mb-8 animate-pulse">{selectedMovie.thumbnail}</div>
+                <h2 className="display-font text-4xl text-white mb-4">{selectedMovie.title}</h2>
+                <p className="text-gray-400 mb-8">{selectedMovie.description}</p>
+                <div className="bg-slate-800 rounded-lg p-8">
+                  <p className="text-gray-300 mb-4">Reproductor de video en desarrollo</p>
+                  <p className="text-sm text-gray-500">Esta es una versión demo. El reproductor real se integrará con tu plataforma de streaming.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+          <header className="fixed top-0 w-full z-50 bg-gradient-to-r from-slate-900/95 to-purple-900/95 backdrop-blur-lg border-b border-orange-500/20">
+            <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+              <h1 className="title-font text-4xl gradient-text cursor-pointer" onClick={() => setCurrentView('home')}>
+                AYIFLIX
+              </h1>
+              
+              <div className="flex items-center gap-4">
+                <input
+                  type="text"
+                  placeholder="Buscar..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="px-4 py-2 bg-slate-800/50 border border-orange-500/30 rounded-full text-sm text-white placeholder-gray-400 focus:outline-none"
+                />
+                
+                {user?.isAdmin && (
+                  <button
+                    onClick={() => setCurrentView('admin')}
+                    className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-full font-semibold transition text-sm"
+                  >
+                    Admin
+                  </button>
+                )}
+                
+                <button
+                  onClick={handleLogout}
+                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-full font-semibold transition text-sm"
+                >
+                  Salir
+                </button>
+              </div>
+            </div>
+          </header>
+
+          <main className="pt-24 px-4 pb-20 tropical-pattern">
+            {!searchQuery && movies.find(m => m.featured) && (
+              <div className="max-w-7xl mx-auto mb-16 relative rounded-2xl overflow-hidden h-[400px] flex items-center">
+                <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-900/70 to-transparent z-10"></div>
+                <div className="absolute inset-0 text-9xl flex items-center justify-center opacity-20">
+                  {movies.find(m => m.featured).thumbnail}
+                </div>
+                <div className="relative z-20 max-w-2xl p-12">
+                  <h2 className="display-font text-5xl font-bold text-white mb-4 float-animation">
+                    {movies.find(m => m.featured).title}
+                  </h2>
+                  <div className="flex items-center gap-4 mb-6">
+                    <span className="px-3 py-1 bg-orange-500 text-white text-sm font-bold rounded">DESTACADO</span>
+                    <span className="text-orange-400 font-semibold">{movies.find(m => m.featured).year}</span>
+                    <span className="text-white font-semibold">★ {movies.find(m => m.featured).rating}</span>
+                  </div>
+                  <p className="text-gray-300 mb-8">{movies.find(m => m.featured).description}</p>
+                  <button
+                    onClick={() => { setSelectedMovie(movies.find(m => m.featured)); setCurrentView('player'); }}
+                    className="px-8 py-3 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-full transition pulse-glow"
+                  >
+                    ▶ Reproducir
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="max-w-7xl mx-auto">
+              <h3 className="title-font text-3xl text-white mb-6">
+                {searchQuery ? `Resultados: "${searchQuery}"` : 'Catálogo'}
+              </h3>
+              
+              {filteredMovies.length === 0 ? (
+                <div className="text-center py-20">
+                  <p className="text-gray-400 text-xl">No se encontraron películas</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-6">
+                  {filteredMovies.map((movie) => (
+                    <div
+                      key={movie.id}
+                      onClick={() => { setSelectedMovie(movie); setCurrentView('player'); }}
+                      className="movie-card bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-6 cursor-pointer border border-orange-500/20"
+                    >
+                      <div className="text-6xl mb-4 text-center">{movie.thumbnail}</div>
+                      <h4 className="font-bold text-white mb-2 text-sm">{movie.title}</h4>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-orange-400 font-semibold">{movie.category}</span>
+                        <span className="text-gray-300">★ {movie.rating}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </main>
+        </div>
+      );
+    }
+
+    function AdminPanel({ movies, setMovies, onLogout, onNavigate }) {
+      const [activeTab, setActiveTab] = useState('movies');
+      const [editingMovie, setEditingMovie] = useState(null);
+      const [showAddForm, setShowAddForm] = useState(false);
+      
+      const [formData, setFormData] = useState({
+        title: '',
+        category: '',
+        year: 2024,
+        rating: 4.0,
+        thumbnail: '🎬',
+        description: '',
+        featured: false
+      });
+
+      const handleAddMovie = () => {
+        setMovies([...movies, { ...formData, id: Date.now() }]);
+        setShowAddForm(false);
+        setFormData({ title: '', category: '', year: 2024, rating: 4.0, thumbnail: '🎬', description: '', featured: false });
+      };
+
+      const handleUpdateMovie = () => {
+        setMovies(movies.map(m => m.id === editingMovie.id ? { ...formData, id: editingMovie.id } : m));
+        setEditingMovie(null);
+      };
+
+      const handleDeleteMovie = (id) => {
+        if (confirm('¿Eliminar película?')) setMovies(movies.filter(m => m.id !== id));
+      };
+
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+          <header className="bg-slate-900/95 backdrop-blur-lg border-b border-orange-500/20 sticky top-0 z-40">
+            <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <h1 className="title-font text-3xl gradient-text">AYIFLIX ADMIN</h1>
+                <span className="px-3 py-1 bg-orange-500 text-white text-xs font-bold rounded-full">CONTROL</span>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => onNavigate('home')}
+                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition"
+                >
+                  Ver Sitio
+                </button>
+                <button
+                  onClick={onLogout}
+                  className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition"
+                >
+                  Salir
+                </button>
+              </div>
+            </div>
+          </header>
+
+          <div className="max-w-7xl mx-auto px-6 pt-8">
+            <div className="flex gap-4 border-b border-slate-700 mb-8">
+              <button
+                onClick={() => setActiveTab('movies')}
+                className={`px-6 py-3 font-semibold ${activeTab === 'movies' ? 'text-orange-400 border-b-2 border-orange-400' : 'text-gray-400'}`}
+              >
+                🎬 Películas ({movies.length})
+              </button>
+              <button
+                onClick={() => setActiveTab('users')}
+                className={`px-6 py-3 font-semibold ${activeTab === 'users' ? 'text-orange-400 border-b-2 border-orange-400' : 'text-gray-400'}`}
+              >
+                👥 Usuarios
+              </button>
+              <button
+                onClick={() => setActiveTab('payments')}
+                className={`px-6 py-3 font-semibold ${activeTab === 'payments' ? 'text-orange-400 border-b-2 border-orange-400' : 'text-gray-400'}`}
+              >
+                💳 Pagos
+              </button>
+            </div>
+          </div>
+
+          <div className="max-w-7xl mx-auto px-6 pb-12">
+            {activeTab === 'movies' && (
+              <div>
+                {(showAddForm || editingMovie) && (
+                  <div className="bg-slate-800 rounded-xl p-6 mb-8 border border-orange-500/20">
+                    <div className="flex items-center justify-between mb-6">
+                      <h3 className="title-font text-2xl text-white">
+                        {editingMovie ? 'Editar' : 'Agregar'} Película
+                      </h3>
+                      <button onClick={() => { setShowAddForm(false); setEditingMovie(null); }} className="text-gray-400 hover:text-white text-2xl">
+                        ×
+                      </button>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-4 mb-6">
+                      <input type="text" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} placeholder="Título" className="px-4 py-2 bg-slate-700 border border-orange-500/30 rounded-lg text-white" />
+                      <input type="text" value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} placeholder="Categoría" className="px-4 py-2 bg-slate-700 border border-orange-500/30 rounded-lg text-white" />
+                      <input type="number" value={formData.year} onChange={(e) => setFormData({ ...formData, year: e.target.value })} placeholder="Año" className="px-4 py-2 bg-slate-700 border border-orange-500/30 rounded-lg text-white" />
+                      <input type="number" step="0.1" value={formData.rating} onChange={(e) => setFormData({ ...formData, rating: e.target.value })} placeholder="Rating" className="px-4 py-2 bg-slate-700 border border-orange-500/30 rounded-lg text-white" />
+                      <input type="text" value={formData.thumbnail} onChange={(e) => setFormData({ ...formData, thumbnail: e.target.value })} placeholder="Emoji" className="px-4 py-2 bg-slate-700 border border-orange-500/30 rounded-lg text-white" />
+                      <label className="flex items-center gap-2 px-4 py-2 text-white">
+                        <input type="checkbox" checked={formData.featured} onChange={(e) => setFormData({ ...formData, featured: e.target.checked })} />
+                        Destacado
+                      </label>
+                    </div>
+
+                    <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Descripción" className="w-full px-4 py-2 bg-slate-700 border border-orange-500/30 rounded-lg text-white h-24 mb-6" />
+
+                    <button onClick={editingMovie ? handleUpdateMovie : handleAddMovie} className="w-full py-3 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg">
+                      {editingMovie ? 'Guardar' : 'Agregar'}
+                    </button>
+                  </div>
+                )}
+
+                {!showAddForm && !editingMovie && (
+                  <button onClick={() => setShowAddForm(true)} className="mb-6 px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg">
+                    + Agregar Película
+                  </button>
+                )}
+
+                <div className="space-y-4">
+                  {movies.map((movie) => (
+                    <div key={movie.id} className="admin-card bg-slate-800 rounded-xl p-6 border border-orange-500/20 flex items-center gap-6">
+                      <div className="text-5xl">{movie.thumbnail}</div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h4 className="font-bold text-white text-lg">{movie.title}</h4>
+                          {movie.featured && <span className="px-2 py-1 bg-orange-500 text-white text-xs rounded">DESTACADO</span>}
+                        </div>
+                        <div className="text-sm text-gray-400">
+                          {movie.category} • {movie.year} • ★ {movie.rating}
+                        </div>
+                        <p className="text-gray-300 text-sm mt-2">{movie.description}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => { setEditingMovie(movie); setFormData(movie); }} className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg">
+                          Editar
+                        </button>
+                        <button onClick={() => handleDeleteMovie(movie.id)} className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg">
+                          Eliminar
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'users' && (
+              <div className="bg-slate-800 rounded-xl p-8 border border-orange-500/20">
+                <h3 className="title-font text-2xl text-white mb-6">Gestión de Usuarios</h3>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center p-4 bg-slate-700 rounded-lg">
+                    <div>
+                      <div className="font-semibold text-white">admin@ayiflix.com</div>
+                      <div className="text-sm text-gray-400">Administrador • Premium</div>
+                    </div>
+                    <span className="px-3 py-1 bg-green-500 text-white text-xs font-bold rounded-full">ACTIVO</span>
+                  </div>
+                  <p className="text-gray-400 text-center py-8">Gestión de usuarios en desarrollo</p>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'payments' && (
+              <div className="bg-slate-800 rounded-xl p-8 border border-orange-500/20">
+                <h3 className="title-font text-2xl text-white mb-6">Configuración de Pagos</h3>
+                <div className="grid md:grid-cols-3 gap-6">
+                  {Object.entries(PAYMENT_METHODS).map(([key, method]) => (
+                    <div key={key} className="p-6 bg-slate-700 rounded-lg">
+                      <div className="text-4xl mb-3">💳</div>
+                      <h4 className="font-bold text-white mb-2">{method.name}</h4>
+                      <label className="flex items-center gap-2 text-sm text-gray-300">
+                        <input type="checkbox" defaultChecked className="w-4 h-4" />
+                        Habilitado
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<Ayiflix />);
+  </script>
+</body>
+</html>
